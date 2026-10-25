@@ -1,0 +1,446 @@
+<title>Password Cracking Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: single-column lab panel — input form on top, live terminal output below */
+  :root {
+    --bg: #f4f5f8;
+    --surface: #ffffff;
+    --surface-2: #eceef3;
+    --fg: #1a1d26;
+    --muted: #5b6072;
+    --line: #d7dae2;
+    --accent: #e07a1f;       /* amber */
+    --accent-soft: #fbe9d6;
+    --ok: #1f8a4c;
+    --ok-soft: #d7f0df;
+    --warn: #b4531a;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #13151c;
+      --surface: #1b1e27;
+      --surface-2: #232733;
+      --fg: #eef0f5;
+      --muted: #9aa0b4;
+      --line: #2e3340;
+      --accent: #f49a3c;
+      --accent-soft: #3a2a17;
+      --ok: #4cc27f;
+      --ok-soft: #16301f;
+      --warn: #f0a16a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #13151c;
+    --surface: #1b1e27;
+    --surface-2: #232733;
+    --fg: #eef0f5;
+    --muted: #9aa0b4;
+    --line: #2e3340;
+    --accent: #f49a3c;
+    --accent-soft: #3a2a17;
+    --ok: #4cc27f;
+    --ok-soft: #16301f;
+    --warn: #f0a16a;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    line-height: 1.55;
+    margin: 0;
+  }
+  .wrap {
+    max-width: 760px;
+    margin-inline: auto;
+    padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+    padding-block: clamp(24px, 6vw, 48px);
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  header .eyebrow {
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.72rem;
+    color: var(--accent);
+    margin: 0 0 6px;
+  }
+  header h1 {
+    font-size: clamp(1.6rem, 5vw, 2.3rem);
+    line-height: 1.1;
+    margin: 0 0 8px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  header p { margin: 0; color: var(--muted); max-width: 60ch; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: clamp(16px, 4vw, 24px);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  label.field { display: flex; flex-direction: column; gap: 7px; }
+  label.field > span {
+    font-weight: 600;
+    font-size: 0.92rem;
+  }
+  .pw-row { display: flex; gap: 10px; }
+  input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--mono);
+    font-size: 1.05rem;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-2);
+    color: var(--fg);
+  }
+  input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  fieldset {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+  }
+  fieldset legend {
+    font-weight: 600;
+    font-size: 0.92rem;
+    padding: 0 6px;
+  }
+  .chk { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 0.9rem; cursor: pointer; }
+  .chk input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; }
+  button {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 0.98rem;
+    padding: 12px 22px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+  button.run { background: var(--accent); color: #1a1205; }
+  button.run:hover { filter: brightness(1.05); }
+  button.stop { background: transparent; color: var(--fg); border-color: var(--line); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .hint { font-size: 0.85rem; color: var(--muted); font-family: var(--mono); }
+  .hint.warn { color: var(--warn); }
+
+  /* Terminal output */
+  .terminal {
+    background: #0f1116;
+    color: #e6e8ef;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    font-family: var(--mono);
+    overflow: hidden;
+  }
+  .terminal .bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    background: #171a21;
+    border-bottom: 1px solid #262b35;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8a90a2;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.r { background: #e05656; } .dot.y { background: #e0b020; } .dot.g { background: #3fae63; }
+  .screen { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  .guess {
+    font-size: clamp(1.4rem, 6vw, 2.1rem);
+    letter-spacing: 0.04em;
+    word-break: break-all;
+    min-height: 1.4em;
+  }
+  .guess .cursor { color: var(--accent); }
+  .guess.found { color: #4cc27f; }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+  }
+  .stat {
+    background: #171a21;
+    border: 1px solid #262b35;
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .stat .k { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.1em; color: #8a90a2; }
+  .stat .v { font-size: 1.15rem; font-variant-numeric: tabular-nums; margin-top: 2px; }
+
+  .result {
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.95rem;
+  }
+  .result.ok { background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok); }
+  .result.info { background: var(--accent-soft); color: var(--warn); border: 1px solid var(--accent); }
+
+  footer {
+    font-size: 0.82rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+    line-height: 1.6;
+  }
+  footer b { color: var(--fg); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cursor { animation: none !important; }
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .cursor { animation: blink 1s step-end infinite; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Brute Force · Demo</p>
+    <h1>Password Cracking Lab</h1>
+    <p>Type a password and hit <b>Run</b>. The system tries every possible combination
+       in order until it finds your password — showing attempts, speed and elapsed time live.</p>
+  </header>
+
+  <div class="panel">
+    <label class="field">
+      <span>Target password</span>
+      <div class="pw-row">
+        <input id="pw" type="text" autocomplete="off" spellcheck="false"
+               placeholder="e.g. ak47" value="ak47">
+      </div>
+    </label>
+
+    <fieldset>
+      <legend>Characters to try</legend>
+      <label class="chk"><input type="checkbox" id="c-lower" checked> lowercase (a–z)</label>
+      <label class="chk"><input type="checkbox" id="c-upper"> UPPERCASE (A–Z)</label>
+      <label class="chk"><input type="checkbox" id="c-digit" checked> digits (0–9)</label>
+      <label class="chk"><input type="checkbox" id="c-sym"> symbols (!@#…)</label>
+    </fieldset>
+
+    <p id="hint" class="hint"></p>
+
+    <div class="controls">
+      <button class="run" id="run">▶ Run</button>
+      <button class="stop" id="stop" disabled>■ Stop</button>
+    </div>
+  </div>
+
+  <div class="terminal">
+    <div class="bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span style="margin-left:6px">brute-force.py</span>
+    </div>
+    <div class="screen">
+      <div class="guess" id="guess"><span class="cursor">_</span></div>
+      <div class="stats">
+        <div class="stat"><div class="k">Attempts</div><div class="v" id="s-tries">0</div></div>
+        <div class="stat"><div class="k">Length</div><div class="v" id="s-len">–</div></div>
+        <div class="stat"><div class="k">Speed (tries/s)</div><div class="v" id="s-speed">0</div></div>
+        <div class="stat"><div class="k">Time</div><div class="v" id="s-time">0.00 s</div></div>
+      </div>
+      <div class="result info" id="result" hidden></div>
+    </div>
+  </div>
+
+  <footer>
+    <b>How it works:</b> starting from 1 character, the system generates every combination
+    of the selected character set and compares each one to the target. The first match is the
+    password. <br>
+    <b>The lesson:</b> the longer the password and the wider the character set, the number of
+    attempts grows <i>exponentially</i> — a short password falls in seconds, a long mixed one is
+    practically uncrackable.<br>
+    <b>Note:</b> this is an educational demo only; it searches only for the text you type in the box.
+  </footer>
+</div>
+
+<script>
+(function () {
+  var LOWER = "abcdefghijklmnopqrstuvwxyz";
+  var UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  var DIGIT = "0123456789";
+  var SYM   = "!@#$%&*?-_";
+
+  var $ = function (id) { return document.getElementById(id); };
+  var pwEl = $("pw"), hintEl = $("hint"), resultEl = $("result");
+  var guessEl = $("guess"), runBtn = $("run"), stopBtn = $("stop");
+  var sTries = $("s-tries"), sLen = $("s-len"), sSpeed = $("s-speed"), sTime = $("s-time");
+
+  var running = false, rafId = null;
+
+  function charset() {
+    var s = "";
+    if ($("c-lower").checked) s += LOWER;
+    if ($("c-upper").checked) s += UPPER;
+    if ($("c-digit").checked) s += DIGIT;
+    if ($("c-sym").checked)   s += SYM;
+    return s;
+  }
+
+  function fmt(n) { return n.toLocaleString("en-US"); }
+
+  // Are all target characters inside the selected set? Otherwise it can never be found.
+  function missingChars(target, set) {
+    var miss = "";
+    for (var i = 0; i < target.length; i++) {
+      var ch = target[i];
+      if (set.indexOf(ch) === -1 && miss.indexOf(ch) === -1) miss += ch;
+    }
+    return miss;
+  }
+
+  function updateHint() {
+    var target = pwEl.value;
+    var set = charset();
+    if (!target) { hintEl.textContent = "Type a password."; hintEl.className = "hint"; return true; }
+    if (!set)    { hintEl.textContent = "Pick at least one character set."; hintEl.className = "hint warn"; return false; }
+    var miss = missingChars(target, set);
+    if (miss) {
+      hintEl.textContent = "Warning: '" + miss + "' is not in the selected sets — this password can't be found that way. Enable the right set.";
+      hintEl.className = "hint warn";
+      return false;
+    }
+    // Estimated number of combinations (up to this length)
+    var b = set.length, L = target.length, total = 0, p = 1;
+    for (var i = 1; i <= L; i++) { p *= b; total += p; }
+    hintEl.textContent = L + " chars · " + b + " possible characters · up to ~" + fmt(total) + " attempts";
+    hintEl.className = "hint";
+    return true;
+  }
+
+  pwEl.addEventListener("input", updateHint);
+  ["c-lower","c-upper","c-digit","c-sym"].forEach(function (id) {
+    $(id).addEventListener("change", updateHint);
+  });
+
+  function setRunning(on) {
+    running = on;
+    runBtn.disabled = on;
+    stopBtn.disabled = !on;
+    pwEl.disabled = on;
+  }
+
+  function stop() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    setRunning(false);
+  }
+
+  function start() {
+    if (!updateHint()) return;
+    var target = pwEl.value;
+    var targetLen = target.length;
+    var set = charset();
+    var setArr = set.split("");
+    var base = set.length;
+
+    resultEl.hidden = true;
+    guessEl.className = "guess";
+    setRunning(true);
+
+    var tries = 0;
+    var t0 = performance.now();
+    var curLen = 1;
+    var idx = [0];               // odometer: indices for the current length
+    var started = false;
+
+    function buildFromIdx() {
+      var s = "";
+      for (var i = 0; i < idx.length; i++) s += setArr[idx[i]];
+      return s;
+    }
+
+    // Does the current combination equal the target? (char-by-char, no string build)
+    function matches() {
+      if (curLen !== targetLen) return false;   // only same-length can match -> big speedup
+      for (var i = 0; i < targetLen; i++) {
+        if (setArr[idx[i]] !== target[i]) return false;
+      }
+      return true;
+    }
+
+    // Advance the odometer by one; carry grows the length. Always returns true (search is open-ended).
+    function next() {
+      var i = idx.length - 1;
+      while (i >= 0) {
+        idx[i]++;
+        if (idx[i] < base) return true;
+        idx[i] = 0;
+        i--;
+      }
+      curLen++;
+      idx = new Array(curLen).fill(0);
+      return true;
+    }
+
+    function finish(found) {
+      var secs = (performance.now() - t0) / 1000;
+      sTime.textContent = secs.toFixed(2) + " s";
+      setRunning(false);
+      if (found) {
+        guessEl.textContent = target;
+        guessEl.className = "guess found";
+        sTries.textContent = fmt(tries);
+        sLen.textContent = curLen;
+        resultEl.className = "result ok";
+        resultEl.textContent = "✔ Password found: \"" + target + "\"  —  " +
+          fmt(tries) + " attempts in " + secs.toFixed(2) + " seconds.";
+        resultEl.hidden = false;
+      }
+    }
+
+    function tick() {
+      if (!running) return;
+      // Try a large batch each frame so the UI stays responsive.
+      var batch = 400000;
+      for (var n = 0; n < batch; n++) {
+        if (started) next();
+        started = true;
+        tries++;
+        if (matches()) { finish(true); return; }
+      }
+      // Update the screen once per frame (last tried guess).
+      guessEl.innerHTML = buildFromIdx().replace(/&/g,"&amp;").replace(/</g,"&lt;") +
+                          '<span class="cursor">_</span>';
+      sTries.textContent = fmt(tries);
+      sLen.textContent = curLen;
+      var el = (performance.now() - t0) / 1000;
+      sTime.textContent = el.toFixed(2) + " s";
+      sSpeed.textContent = fmt(Math.round(tries / Math.max(el, 0.001)));
+      rafId = requestAnimationFrame(tick);
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  runBtn.addEventListener("click", start);
+  stopBtn.addEventListener("click", stop);
+  pwEl.addEventListener("keydown", function (e) { if (e.key === "Enter" && !running) start(); });
+
+  updateHint();
+})();
+</script>

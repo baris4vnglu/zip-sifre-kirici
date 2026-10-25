@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+
+# Virtual environments
+venv/
+.venv/
+
+# Üretilen ZIP dosyaları (demo amaçlı oluşturuluyor)
+gizli.zip
+kolay.zip
+
+# Log dosyaları
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
